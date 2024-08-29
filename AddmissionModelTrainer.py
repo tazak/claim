@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from xgboost import XGBClassifier
@@ -56,7 +57,20 @@ class ModelTrainer:
         recall_adm = recall_score(self.y_test_adm, predictions_adm)
         f1_adm = f1_score(self.y_test_adm, predictions_adm)
         conf_matrix_adm = confusion_matrix(self.y_test_adm, predictions_adm)
+    def evaluate_admission_model(self):
+        predictions_adm = self.model_adm.predict(self.X_test_adm)
+        # metrics
+        accuracy_adm = accuracy_score(self.y_test_adm, predictions_adm)
+        precision_adm = precision_score(self.y_test_adm, predictions_adm)
+        recall_adm = recall_score(self.y_test_adm, predictions_adm)
+        f1_adm = f1_score(self.y_test_adm, predictions_adm)
+        conf_matrix_adm = confusion_matrix(self.y_test_adm, predictions_adm)
 
+        # results
+        print(f"Admission Model - Accuracy: {accuracy_adm:.4f}")
+        print(f"Admission Model - Precision: {precision_adm:.4f}")
+        print(f"Admission Model - Recall: {recall_adm:.4f}")
+        print(f"Admission Model - F1 Score: {f1_adm:.4f}")
         # results
         print(f"Admission Model - Accuracy: {accuracy_adm:.4f}")
         print(f"Admission Model - Precision: {precision_adm:.4f}")
