@@ -5,10 +5,11 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
 
 class DataPreprocessor:
-    def __init__(self, data_path):
-        # Load dataset
-        self.data = pd.read_csv(data_path, low_memory=False)
-        
+    
+    def __init__(self, df, isTraining=True):
+
+        self.data = df
+    
         # Initialize ICD hierarchy and embedder
         self.G, self.icd_codes = hierarchy.icd9()
         self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
@@ -31,16 +32,37 @@ class DataPreprocessor:
             'MEDREIMB_OP', 'BENRES_OP', 'PPPYMT_OP',
             'MEDREIMB_CAR', 'BENRES_CAR', 'PPPYMT_CAR'
         ]
+        self.age_group_mapping = {
+            '<60': 0,
+            '60-90': 1,
+            '>90': 2
+        }
+        self.race_code_mapping = {
+            1: 0,  
+            2: 1,
+            3: 2,
+            4: 3,
+            5: 4
+        }
         
-        # Preprocess data
-        self._process_total_diagnosis_count()
-        self._add_category_column()
-        self._convert_codes_to_vectors()
-        self._flatten_vectors()
-        self._preprocess_other_columns()
-        self._encode_columns()
-        self._frequency_encode()
-        self._scale_payments()
+        if isTraining:
+            # training mode
+            self._process_total_diagnosis_count()
+            self._add_category_column()
+            self._convert_codes_to_vectors()
+            self._flatten_vectors()
+            self._preprocess_other_columns()
+            self._encode_columns()
+            self._encode_category()
+            self._scale_payments()
+        else:
+            self._process_total_diagnosis_count()
+            self._convert_codes_to_vectors()
+            self._flatten_vectors()
+            self._preprocess_other_columns()
+            self._encode_columns()
+            self._scale_payments()    
+        
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
@@ -93,22 +115,17 @@ class DataPreprocessor:
         self.data['AGE'] = self.data.apply(lambda e: (e['CLM_FROM_DT'] - e['BENE_BIRTH_DT']).days / 365, axis=1)
         self.data['CLM_UTLZTN_DAY_CNT'] = (self.data['CLM_THRU_DT'] - self.data['CLM_FROM_DT']).dt.days
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
-
         self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT',
                                 'CLM_ID', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
                        inplace=True)
 
     def _encode_columns(self):
+        self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
+        self.data['BENE_RACE_CD'] = self.data['BENE_RACE_CD'].map(self.race_code_mapping)
+   
+    def _encode_category(self):
         encoder = LabelEncoder()
-        self.data['AGE_GROUP'] = encoder.fit_transform(self.data['AGE_GROUP'])
-        self.data['BENE_RACE_CD'] = encoder.fit_transform(self.data['BENE_RACE_CD'])
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
-
-    def _frequency_encode(self):
-        state_counts = self.data['SP_STATE_CODE'].value_counts().to_dict()
-        self.data['SP_STATE_CODE'] = self.data['SP_STATE_CODE'].map(state_counts).fillna(0)
-        county_counts = self.data['BENE_COUNTY_CD'].value_counts().to_dict()
-        self.data['BENE_COUNTY_CD'] = self.data['BENE_COUNTY_CD'].map(county_counts).fillna(0)
 
     def _scale_payments(self):
         scaler = StandardScaler()
@@ -121,8 +138,12 @@ class DataPreprocessor:
         print(self.data.head())
 
 if __name__ == '__main__':
-   # Usage
-    preprocessor = DataPreprocessor('data/admission.csv')
+   # Usage 
+    print("test")
+    df=pd.read_csv('data/admission.csv')
+    df=df.drop(columns=['SP_STATE_CODE','BENE_COUNTY_CD'])
+    print(df.columns)
+    print("test")
+    preprocessor = DataPreprocessor(df)
     preprocessor.save_to_csv('preprocessed_data.csv')
     preprocessor.display_head()
-
