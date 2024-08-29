@@ -7,13 +7,15 @@ import joblib
 
 app = FastAPI()
 
-admission_model_path = "models/xgb_model_admission.pkl"  
-category_model_path = "models/xgb_model_category.pkl"    
+admission_model_path = "xgb_model_admission.pkl"  
+category_model_path = "xgb_model_category.pkl"  
+label_encoders_path = "label_encoders.pkl"  
 
 try:
     global admission_model, category_model
     admission_model = joblib.load(admission_model_path)
     category_model = joblib.load(category_model_path)
+    label_encoders = joblib.load(label_encoders_path)
 except Exception as e:
     raise RuntimeError(f"Error loading models: {str(e)}")
 
@@ -26,8 +28,6 @@ class Record(BaseModel):
     BENE_SEX_IDENT_CD: int
     BENE_RACE_CD: int
     BENE_ESRD_IND: str
-    SP_STATE_CODE: int
-    BENE_COUNTY_CD: int
     BENE_HI_CVRAGE_TOT_MONS: int
     BENE_SMI_CVRAGE_TOT_MONS: int
     BENE_HMO_CVRAGE_TOT_MONS: int
@@ -69,20 +69,8 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
-        # record to CSV
-        record_df.to_csv('record.csv', index=False)
 
-        #  preprocessrecord
-        preprocessor = DataPreprocessor(data_path='record.csv', isTraining=False)
-        preprocessor.data = record_df
-        preprocessor._process_total_diagnosis_count()
-        preprocessor._convert_codes_to_vectors()
-        preprocessor._flatten_vectors()
-        preprocessor._preprocess_other_columns()
-        preprocessor._encode_columns()
-        preprocessor._frequency_encode()
-        preprocessor._scale_payments()
-
+        preprocessor = DataPreprocessor(record_df, isTraining=False)
         processed_record = preprocessor.data
         admission_prediction = admission_model.predict(processed_record)
 

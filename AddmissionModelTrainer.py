@@ -27,10 +27,10 @@ class ModelTrainer:
 
         # training and testing sets
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
-            self.features_adm, self.target_adm, test_size=0.3, random_state=42
+            self.features_adm, self.target_adm, test_size=0.3, random_state=42, stratify=self.target_adm
         )
         self.X_train_cat, self.X_test_cat, self.y_train_cat, self.y_test_cat = train_test_split(
-            self.features_cat, self.target_cat, test_size=0.3, random_state=42
+            self.features_cat, self.target_cat, test_size=0.3, random_state=42, stratify=self.target_cat
         )
 
         # Initializing XGBoost models
