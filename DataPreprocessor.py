@@ -3,20 +3,23 @@ from icdcodex import icd2vec, hierarchy
 import networkx as nx
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
+import joblib
 
 class DataPreprocessor:
     
-    def __init__(self, df, isTraining=True):
-
+    def __init__(self, df, is_training=True):
         self.data = df
+        self.is_training = is_training
     
-        # Initialize ICD hierarchy and embedder
         self.G, self.icd_codes = hierarchy.icd9()
         self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
-        self.embedder.fit(self.G, self.icd_codes)
+        if self.is_training:
+            self.embedder.fit(self.G, self.icd_codes)
+            joblib.dump(self.embedder, 'model/embedder.pkl')
+        else:
+            self.embedder = joblib.load('model/embedder.pkl')
         self.embedder.vector_size = 2
         
-        # Define columns
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
             'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 'ICD9_DGNS_CD_6',
@@ -45,8 +48,13 @@ class DataPreprocessor:
             5: 4
         }
         
-        if isTraining:
-            # training mode
+        if self.is_training:
+            self.scaler = StandardScaler()
+        else:
+            self.scaler = joblib.load('scaler.pkl')
+    
+
+        if self.is_training:
             self._process_total_diagnosis_count()
             self._add_category_column()
             self._convert_codes_to_vectors()
@@ -61,8 +69,7 @@ class DataPreprocessor:
             self._flatten_vectors()
             self._preprocess_other_columns()
             self._encode_columns()
-            self._scale_payments()    
-        
+            self._scale_payments() 
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
@@ -105,7 +112,6 @@ class DataPreprocessor:
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0})
 
-        # Age grouping and calculation
         age_bins = [0, 60, 90, 100]
         age_labels = ['<60', '60-90', '>90']
         self.data['BENE_BIRTH_DT'] = pd.to_datetime(self.data['BENE_BIRTH_DT'], format='%Y-%m-%d')
@@ -128,9 +134,12 @@ class DataPreprocessor:
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
 
     def _scale_payments(self):
-        scaler = StandardScaler()
-        self.data[self.payment_vars] = scaler.fit_transform(self.data[self.payment_vars])
-
+        if self.is_training:
+            self.data[self.payment_vars] = self.scaler.fit_transform(self.data[self.payment_vars])
+            joblib.dump(self.scaler, 'model/scaler.pkl')
+        else:
+            self.data[self.payment_vars] = self.scaler.transform(self.data[self.payment_vars])
+ 
     def save_to_csv(self, output_path):
         self.data.to_csv(output_path, index=False)
 
@@ -138,10 +147,9 @@ class DataPreprocessor:
         print(self.data.head())
 
 if __name__ == '__main__':
-   # Usage 
     print("test")
-    df=pd.read_csv('data/admission.csv')
-    df=df.drop(columns=['SP_STATE_CODE','BENE_COUNTY_CD'])
+    df = pd.read_csv('data/admission.csv')
+    df = df.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD'])
     print(df.columns)
     print("test")
     preprocessor = DataPreprocessor(df)
