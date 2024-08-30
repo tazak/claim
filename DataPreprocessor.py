@@ -132,6 +132,12 @@ class DataPreprocessor:
     def _encode_category(self):
         encoder = LabelEncoder()
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
+        
+        category_mapping = pd.DataFrame({
+            'Category_Name': encoder.classes_,
+            'Encoded_Label': range(len(encoder.classes_))
+        })
+        category_mapping.to_csv('category_mapping.csv', index=False)
 
     def _scale_payments(self):
         if self.is_training:

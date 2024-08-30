@@ -80,9 +80,14 @@ async def predict(record: Record):
 
         if int(admission_prediction[0]) == 1:
             category_prediction = category_model.predict(processed_record)
+            encoded_category = int(category_prediction[0])
+
+            category_mapping = pd.read_csv('category_mapping.csv')
+            category_name = category_mapping.loc[category_mapping['Encoded_Label'] == encoded_category, 'Category_Name'].values[0]
+
             return {
                 "admission_prediction": int(admission_prediction[0]),
-                "category_prediction": int(category_prediction[0])
+                "category_prediction": category_name
             }
         else:
             return {
