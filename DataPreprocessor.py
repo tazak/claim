@@ -108,9 +108,9 @@ class DataPreprocessor:
 
     def _preprocess_other_columns(self):
         self.data['BENE_SEX_IDENT_CD'] = self.data['BENE_SEX_IDENT_CD'].map({1: 1, 2: 0})
-        self.data['BENE_ESRD_IND'] = self.data['BENE_ESRD_IND'].map({1: 1, 0: 0})
+        self.data['BENE_ESRD_IND'] = self.data['BENE_ESRD_IND'].map({"1": 1, "0": 0})
         for col in self.sp_indicators:
-            self.data[col] = self.data[col].map({1: 1, 2: 0})
+            self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
 
         age_bins = [0, 60, 90, 100]
         age_labels = ['<60', '60-90', '>90']
