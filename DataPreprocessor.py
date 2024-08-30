@@ -172,7 +172,7 @@ class DataPreprocessor:
         print(self.data.head())
 
 if __name__ == '__main__':
-    print("Started prressing the data")
+    print("Started preprocessing the cms data")
     df = pd.read_csv('data/admission.csv')
     print(df.columns)
     preprocessor = DataPreprocessor(df)
