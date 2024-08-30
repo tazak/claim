@@ -25,7 +25,7 @@ except Exception as e:
 class Record(BaseModel):
     DESYNPUF_ID: str = Field(..., description="Beneficiary Code, a unique identifier for each beneficiary.")
     BENE_BIRTH_DT: str = Field(..., description="Date of birth in YYYY-MM-DD format.", pattern=r"^\d{4}-\d{2}-\d{2}$")
-    BENE_DEATH_DT: Optional[str] = Field(None, description="Date of death in YYYY-MM-DD format. Can be null if the beneficiary is alive.", pattern=r"^\d{4}-\d{2}-\d{2}$")
+    BENE_DEATH_DT: Optional[str] = Field(None, description="Date of death in YYYY-MM-DD format. Can be null if the beneficiary is alive.", pattern=r"^(NULL|(\d{4}-\d{2}-\d{2}$))")
     BENE_SEX_IDENT_CD: int = Field(..., description="Sex of the beneficiary. 1: Male, 2: Female.", ge=1, le=2)
     BENE_RACE_CD: int = Field(..., description="Beneficiary Race Code. An integer code representing the race.", ge=1, le=5)
     BENE_ESRD_IND: str = Field(..., description="End stage renal disease Indicator. 'Y' for Yes, 'N' for No.", pattern=r'^[01]$')

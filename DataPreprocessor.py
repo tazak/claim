@@ -4,6 +4,7 @@ import networkx as nx
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
 import joblib
+import os
 
 class DataPreprocessor:
     
@@ -51,11 +52,12 @@ class DataPreprocessor:
         if self.is_training:
             self.scaler = StandardScaler()
         else:
-            self.scaler = joblib.load('scaler.pkl')
+            self.scaler = joblib.load('model/scaler.pkl')
     
 
         if self.is_training:
             self.drop_column()
+            self.create_model_directory()
             self._process_total_diagnosis_count()
             self._add_category_column()
             self._convert_codes_to_vectors()
@@ -72,6 +74,16 @@ class DataPreprocessor:
             self._preprocess_other_columns()
             self._encode_columns()
             self._scale_payments() 
+
+    
+
+    def create_model_directory(self):
+        directory_path = 'model'
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
+            print(f"Directory '{directory_path}' created.")
+      
+   
 
     def drop_column(self):
         self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
@@ -160,7 +172,7 @@ class DataPreprocessor:
         print(self.data.head())
 
 if __name__ == '__main__':
-    print("test")
+    print("Started prressing the data")
     df = pd.read_csv('data/admission.csv')
     print(df.columns)
     preprocessor = DataPreprocessor(df)
