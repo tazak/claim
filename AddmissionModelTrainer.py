@@ -16,13 +16,7 @@ class ModelTrainer:
         self.target_adm = self.data['ADMNS']
 
         # features and target for category prediction
-        self.features_cat = self.data.drop(['ADMNS', 'Category',
-            'ICD9_DGNS_CD_1_vec_1', 'ICD9_DGNS_CD_1_vec_2', 'ICD9_DGNS_CD_2_vec_1',
-            'ICD9_DGNS_CD_2_vec_2', 'ICD9_DGNS_CD_3_vec_1', 'ICD9_DGNS_CD_3_vec_2',
-            'ICD9_DGNS_CD_4_vec_1', 'ICD9_DGNS_CD_4_vec_2', 'ICD9_DGNS_CD_5_vec_1',
-            'ICD9_DGNS_CD_5_vec_2', 'ICD9_DGNS_CD_6_vec_1', 'ICD9_DGNS_CD_6_vec_2',
-            'ICD9_DGNS_CD_7_vec_1', 'ICD9_DGNS_CD_7_vec_2', 'ICD9_DGNS_CD_8_vec_1',
-            'ICD9_DGNS_CD_8_vec_2'], axis=1)
+        self.features_cat = self.data.drop(['Category'], axis=1)
         self.target_cat = self.data['Category']
 
         # Stratified splitting 
