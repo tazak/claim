@@ -55,6 +55,7 @@ class DataPreprocessor:
     
 
         if self.is_training:
+            self.drop_column()
             self._process_total_diagnosis_count()
             self._add_category_column()
             self._convert_codes_to_vectors()
@@ -64,12 +65,19 @@ class DataPreprocessor:
             self._encode_category()
             self._scale_payments()
         else:
+            self.add_adm_col()
             self._process_total_diagnosis_count()
             self._convert_codes_to_vectors()
             self._flatten_vectors()
             self._preprocess_other_columns()
             self._encode_columns()
             self._scale_payments() 
+
+    def drop_column(self):
+        self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
+
+    def add_adm_col(self):
+        self.data.rename(columns={'CLM_ID': 'ADMNS'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
@@ -121,8 +129,7 @@ class DataPreprocessor:
         self.data['AGE'] = self.data.apply(lambda e: (e['CLM_FROM_DT'] - e['BENE_BIRTH_DT']).days / 365, axis=1)
         self.data['CLM_UTLZTN_DAY_CNT'] = (self.data['CLM_THRU_DT'] - self.data['CLM_FROM_DT']).dt.days
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
-        self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT',
-                                'CLM_ID', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
+        self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
                        inplace=True)
 
     def _encode_columns(self):
@@ -132,12 +139,12 @@ class DataPreprocessor:
     def _encode_category(self):
         encoder = LabelEncoder()
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
-        
+
         category_mapping = pd.DataFrame({
             'Category_Name': encoder.classes_,
             'Encoded_Label': range(len(encoder.classes_))
         })
-        category_mapping.to_csv('category_mapping.csv', index=False)
+        category_mapping.to_csv('data/category_mapping.csv', index=False)
 
     def _scale_payments(self):
         if self.is_training:
@@ -155,9 +162,7 @@ class DataPreprocessor:
 if __name__ == '__main__':
     print("test")
     df = pd.read_csv('data/admission.csv')
-    df = df.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD'])
     print(df.columns)
-    print("test")
     preprocessor = DataPreprocessor(df)
-    preprocessor.save_to_csv('preprocessed_data.csv')
+    preprocessor.save_to_csv('data/preprocessed_data.csv')
     preprocessor.display_head()

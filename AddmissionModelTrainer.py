@@ -16,7 +16,7 @@ class ModelTrainer:
         self.target_adm = self.data['ADMNS']
 
         # features and target for category prediction
-        self.features_cat = self.data.drop(['ADMNS', 'Category'], axis=1)
+        self.features_cat = self.data.drop(['Category'], axis=1)
         self.target_cat = self.data['Category']
 
         # Stratified splitting 

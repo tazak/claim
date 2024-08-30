@@ -76,13 +76,18 @@ async def predict(record: Record):
         processed_record = preprocessor.data
         print(processed_record)
 
-        admission_prediction = admission_model.predict(processed_record)
+        admission_record = processed_record.copy()
+        admission_record = admission_record.drop(columns=['ADMNS'])
+        
+        admission_prediction = admission_model.predict(admission_record)
 
         if int(admission_prediction[0]) == 1:
+            processed_record['ADMNS'] = 1  
+
             category_prediction = category_model.predict(processed_record)
             encoded_category = int(category_prediction[0])
-
-            category_mapping = pd.read_csv('category_mapping.csv')
+      
+            category_mapping = pd.read_csv('data/category_mapping.csv')
             category_name = category_mapping.loc[category_mapping['Encoded_Label'] == encoded_category, 'Category_Name'].values[0]
 
             return {
