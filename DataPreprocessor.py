@@ -3,6 +3,7 @@ from icdcodex import icd2vec, hierarchy
 import networkx as nx
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
+import concurrent.futures
 import joblib
 import os
 
@@ -115,9 +116,12 @@ class DataPreprocessor:
             return np.zeros(self.embedder.vector_size)
         return self.embedder.to_vec([code])[0] if code in self.G.nodes() else np.zeros(self.embedder.vector_size)
 
+    def _convert_single_column(self, col):
+        self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
+
     def _convert_codes_to_vectors(self):
-        for col in self.diagnosis_cols:
-            self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            executor.map(self._convert_single_column, self.diagnosis_cols)
 
     def _flatten_vectors(self):
         for col in self.diagnosis_cols:
