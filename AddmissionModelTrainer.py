@@ -4,9 +4,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from xgboost import XGBClassifier
 import joblib
+import mlflow
+from mlflow.models import infer_signature
 
 class ModelTrainer:
     def __init__(self, data_path, adm_model_save_path, cat_model_save_path):
+        # Set our tracking server uri for logging
+        mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+        # Create a new MLflow Experiment
+        mlflow.set_experiment("xgboost")
         self.data = pd.read_csv(data_path)
         self.adm_model_save_path = adm_model_save_path
         self.cat_model_save_path = cat_model_save_path
@@ -38,6 +44,7 @@ class ModelTrainer:
         print(f"Admission Test data saved to {adm_test_path}")    
 
     def train_admission_model(self):
+
         self.model_adm.fit(self.X_train_adm, self.y_train_adm)
         joblib.dump(self.model_adm, self.adm_model_save_path)
         print(f"Admission Model saved to {self.adm_model_save_path}")
@@ -50,6 +57,12 @@ class ModelTrainer:
         recall_adm = recall_score(self.y_test_adm, predictions_adm)
         f1_adm = f1_score(self.y_test_adm, predictions_adm)
         conf_matrix_adm = confusion_matrix(self.y_test_adm, predictions_adm)
+
+        # Log metrics
+        mlflow.log_metric("accuracy_adm", accuracy_adm)
+        mlflow.log_metric("precision_adm", precision_adm)
+        mlflow.log_metric("recall_adm", recall_adm)
+        mlflow.log_metric("f1_adm", f1_adm)
 
         # results
         print(f"Admission Model - Accuracy: {accuracy_adm:.4f}")
@@ -73,6 +86,12 @@ class ModelTrainer:
         f1_cat = f1_score(self.y_test_cat, predictions_cat, average='weighted')
         conf_matrix_cat = confusion_matrix(self.y_test_cat, predictions_cat)
 
+        # Log metrics
+        mlflow.log_metric("accuracy_cat", accuracy_cat)
+        mlflow.log_metric("precision_cat", precision_cat)
+        mlflow.log_metric("recall_cat", recall_cat)
+        mlflow.log_metric("f1_cat", f1_cat)
+
         # results
         print(f"Category Model - Accuracy: {accuracy_cat:.4f}")
         print(f"Category Model - Precision: {precision_cat:.4f}")
@@ -85,11 +104,11 @@ class ModelTrainer:
 if __name__ == "__main__":
     trainer = ModelTrainer('preprocessed_data.csv', 'model/xgb_model_admission.pkl', 'model/xgb_model_category.pkl')
     trainer.train_admission_model()
-    print("done")
+    print("addmission training done")
     trainer.evaluate_admission_model()
-    print("done")
+    print("admission evaluation done")
     trainer.train_category_model()
-    print("done")
+    print("specilization admission done")
     trainer.evaluate_category_model()
     
   
