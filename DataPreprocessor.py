@@ -3,9 +3,10 @@ from icdcodex import icd2vec, hierarchy
 import networkx as nx
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
-import concurrent.futures
 import joblib
 import os
+import concurrent.futures
+
 
 class DataPreprocessor:
     
@@ -76,16 +77,12 @@ class DataPreprocessor:
             self._encode_columns()
             self._scale_payments() 
 
-    
-
     def create_model_directory(self):
         directory_path = 'model'
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
             print(f"Directory '{directory_path}' created.")
       
-   
-
     def drop_column(self):
         self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
 
@@ -96,29 +93,27 @@ class DataPreprocessor:
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
 
     def _get_top_most_parent(self, icd_code):
-        try:
-            path = nx.shortest_path(self.G, source="root", target=icd_code)
-            return path[1]
-        except nx.NetworkXError:
-            return None
-
-    def _determine_category(self, icd_codes):
-        parents = [self._get_top_most_parent(code) for code in icd_codes if code in self.G.nodes()]
-        if not parents:
-            return None
-        return max(set(parents), key=parents.count)
-
+     if icd_code not in self.G.nodes():
+        return "OTHER"
+     try:
+        path = nx.shortest_path(self.G, source="root", target=icd_code)
+        top_most_parent = path[1] if len(path) > 1 else path[0]
+        return top_most_parent
+     except nx.NetworkXNoPath:
+        return "OTHER"
+    
     def _add_category_column(self):
-        self.data['Category'] = self.data[self.diagnosis_cols].apply(lambda row: self._determine_category(row.dropna()), axis=1)
+     self.data['Category'] = self.data['ADMNS_DGNS'].apply(lambda code: self._get_top_most_parent(code))
+
 
     def _code_to_vector(self, code):
         if code is None or pd.isna(code):
             return np.zeros(self.embedder.vector_size)
         return self.embedder.to_vec([code])[0] if code in self.G.nodes() else np.zeros(self.embedder.vector_size)
-
+    
     def _convert_single_column(self, col):
         self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
-
+        
     def _convert_codes_to_vectors(self):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             executor.map(self._convert_single_column, self.diagnosis_cols)
@@ -176,7 +171,7 @@ class DataPreprocessor:
         print(self.data.head())
 
 if __name__ == '__main__':
-    print("Started prressing the data")
+    print("Started preprocessing the cms data")
     df = pd.read_csv('data/admission.csv')
     print(df.columns)
     preprocessor = DataPreprocessor(df)
