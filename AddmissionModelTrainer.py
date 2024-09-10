@@ -5,10 +5,15 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from xgboost import XGBClassifier
 import joblib
 import mlflow
+
 import mlflow.sklearn
 
 class ModelTrainer:
     def __init__(self, data_path, adm_model_save_path, cat_model_save_path):
+        # Set our tracking server uri for logging
+        mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+        # Create a new MLflow Experiment
+        mlflow.set_experiment("xgboost")
         self.data = pd.read_csv(data_path)
         self.adm_model_save_path = adm_model_save_path
         self.cat_model_save_path = cat_model_save_path
@@ -40,6 +45,7 @@ class ModelTrainer:
         print(f"Admission Test data saved to {adm_test_path}")
 
     def train_admission_model(self):
+
         mlflow.end_run()  # End any previous run
         with mlflow.start_run(run_name="Admission Model"):
             self.model_adm.fit(self.X_train_adm, self.y_train_adm)
@@ -48,6 +54,7 @@ class ModelTrainer:
             joblib.dump(self.model_adm, self.adm_model_save_path)
             print(f"Admission Model saved to {self.adm_model_save_path}")
             mlflow.end_run()
+
 
     def evaluate_admission_model(self):
         predictions_adm = self.model_adm.predict(self.X_test_adm)
@@ -64,7 +71,8 @@ class ModelTrainer:
         mlflow.log_metric("recall_adm", recall_adm)
         mlflow.log_metric("f1_adm", f1_adm)
 
-        # Results
+        # results
+
         print(f"Admission Model - Accuracy: {accuracy_adm:.4f}")
         print(f"Admission Model - Precision: {precision_adm:.4f}")
         print(f"Admission Model - Recall: {recall_adm:.4f}")
@@ -97,7 +105,9 @@ class ModelTrainer:
         mlflow.log_metric("recall_cat", recall_cat)
         mlflow.log_metric("f1_cat", f1_cat)
 
+
         # Results
+
         print(f"Category Model - Accuracy: {accuracy_cat:.4f}")
         print(f"Category Model - Precision: {precision_cat:.4f}")
         print(f"Category Model - Recall: {recall_cat:.4f}")
@@ -109,6 +119,8 @@ class ModelTrainer:
 if __name__ == "__main__":
     trainer = ModelTrainer('preprocessed_data.csv', 'model/xgb_model_admission.pkl', 'model/xgb_model_category.pkl')
     trainer.train_admission_model()
+
     trainer.evaluate_admission_model()
     trainer.train_category_model()
+
     trainer.evaluate_category_model()
