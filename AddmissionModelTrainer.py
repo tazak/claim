@@ -5,7 +5,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from xgboost import XGBClassifier
 import joblib
 import mlflow
-from mlflow.models import infer_signature
+
+import mlflow.sklearn
 
 class ModelTrainer:
     def __init__(self, data_path, adm_model_save_path, cat_model_save_path):
@@ -17,15 +18,15 @@ class ModelTrainer:
         self.adm_model_save_path = adm_model_save_path
         self.cat_model_save_path = cat_model_save_path
 
-        # features and target for admission prediction
+        # Features and target for admission prediction
         self.features_adm = self.data.drop(['ADMNS', 'Category'], axis=1)
         self.target_adm = self.data['ADMNS']
 
-        # features and target for category prediction
+        # Features and target for category prediction
         self.features_cat = self.data.drop(['Category'], axis=1)
         self.target_cat = self.data['Category']
 
-        # Stratified splitting 
+        # Stratified splitting
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
             self.features_adm, self.target_adm, test_size=0.3, random_state=42, stratify=self.target_adm
         )
@@ -41,17 +42,23 @@ class ModelTrainer:
         adm_test_data = pd.DataFrame(self.X_test_adm)
         adm_test_data['ADMNS'] = self.y_test_adm.reset_index(drop=True)
         adm_test_data.to_csv(adm_test_path, index=False)
-        print(f"Admission Test data saved to {adm_test_path}")    
+        print(f"Admission Test data saved to {adm_test_path}")
 
     def train_admission_model(self):
 
-        self.model_adm.fit(self.X_train_adm, self.y_train_adm)
-        joblib.dump(self.model_adm, self.adm_model_save_path)
-        print(f"Admission Model saved to {self.adm_model_save_path}")
+        mlflow.end_run()  # End any previous run
+        with mlflow.start_run(run_name="Admission Model"):
+            self.model_adm.fit(self.X_train_adm, self.y_train_adm)
+            mlflow.sklearn.log_model(self.model_adm, "admission_model")
+            mlflow.log_params(self.model_adm.get_params())
+            joblib.dump(self.model_adm, self.adm_model_save_path)
+            print(f"Admission Model saved to {self.adm_model_save_path}")
+            mlflow.end_run()
+
 
     def evaluate_admission_model(self):
         predictions_adm = self.model_adm.predict(self.X_test_adm)
-        # metrics
+        # Metrics
         accuracy_adm = accuracy_score(self.y_test_adm, predictions_adm)
         precision_adm = precision_score(self.y_test_adm, predictions_adm)
         recall_adm = recall_score(self.y_test_adm, predictions_adm)
@@ -65,6 +72,7 @@ class ModelTrainer:
         mlflow.log_metric("f1_adm", f1_adm)
 
         # results
+
         print(f"Admission Model - Accuracy: {accuracy_adm:.4f}")
         print(f"Admission Model - Precision: {precision_adm:.4f}")
         print(f"Admission Model - Recall: {recall_adm:.4f}")
@@ -73,13 +81,18 @@ class ModelTrainer:
         print(conf_matrix_adm)
 
     def train_category_model(self):
-        self.model_cat.fit(self.X_train_cat, self.y_train_cat)
-        joblib.dump(self.model_cat, self.cat_model_save_path)
-        print(f"Category Model saved to {self.cat_model_save_path}")
+        mlflow.end_run()  # End any previous run
+        with mlflow.start_run(run_name="Category Model"):
+            self.model_cat.fit(self.X_train_cat, self.y_train_cat)
+            mlflow.sklearn.log_model(self.model_cat, "category_model")
+            mlflow.log_params(self.model_cat.get_params())
+            joblib.dump(self.model_cat, self.cat_model_save_path)
+            print(f"Category Model saved to {self.cat_model_save_path}")
+            mlflow.end_run()
 
     def evaluate_category_model(self):
         predictions_cat = self.model_cat.predict(self.X_test_cat)
-        # metrics
+        # Metrics
         accuracy_cat = accuracy_score(self.y_test_cat, predictions_cat)
         precision_cat = precision_score(self.y_test_cat, predictions_cat, average='weighted')
         recall_cat = recall_score(self.y_test_cat, predictions_cat, average='weighted')
@@ -92,7 +105,9 @@ class ModelTrainer:
         mlflow.log_metric("recall_cat", recall_cat)
         mlflow.log_metric("f1_cat", f1_cat)
 
-        # results
+
+        # Results
+
         print(f"Category Model - Accuracy: {accuracy_cat:.4f}")
         print(f"Category Model - Precision: {precision_cat:.4f}")
         print(f"Category Model - Recall: {recall_cat:.4f}")
@@ -104,11 +119,8 @@ class ModelTrainer:
 if __name__ == "__main__":
     trainer = ModelTrainer('preprocessed_data.csv', 'model/xgb_model_admission.pkl', 'model/xgb_model_category.pkl')
     trainer.train_admission_model()
-    print("addmission training done")
+
     trainer.evaluate_admission_model()
-    print("admission evaluation done")
     trainer.train_category_model()
-    print("specilization admission done")
+
     trainer.evaluate_category_model()
-    
-  
