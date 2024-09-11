@@ -9,7 +9,6 @@ import concurrent.futures
 
 
 class DataPreprocessor:
-    
     def __init__(self, df, is_training=True):
         self.data = df
         self.is_training = is_training
@@ -26,7 +25,7 @@ class DataPreprocessor:
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
             'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 'ICD9_DGNS_CD_6',
-            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8'
+            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','ADMTNG_ICD9_DGNS_CD'
         ]
         self.sp_indicators = [
             'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD',
@@ -92,19 +91,18 @@ class DataPreprocessor:
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
 
-    def _get_top_most_parent(self, icd_code):
+    
+    def _get_immediate_parent(self, icd_code):
      if icd_code not in self.G.nodes():
         return "OTHER"
      try:
-        path = nx.shortest_path(self.G, source="root", target=icd_code)
-        top_most_parent = path[1] if len(path) > 1 else path[0]
-        return top_most_parent
-     except nx.NetworkXNoPath:
+        predecessors = list(self.G.predecessors(icd_code))
+        return predecessors[0] if predecessors else "OTHER"
+     except nx.NetworkXError:
         return "OTHER"
-    
-    def _add_category_column(self):
-     self.data['Category'] = self.data['ADMNS_DGNS'].apply(lambda code: self._get_top_most_parent(code))
 
+    def _add_category_column(self):
+     self.data['Category'] = self.data['ADMTNG_ICD9_DGNS_CD'].apply(lambda code: self._get_immediate_parent(code))
 
     def _code_to_vector(self, code):
         if code is None or pd.isna(code):
