@@ -106,7 +106,7 @@ class ModelTrainer:
 
 # Usage
 if __name__ == "__main__":
-    trainer = ModelTrainer('data/preprocessed_data.csv', 'model/xgb_model_admission.pkl', 'model/xgb_model_category.pkl')
+    trainer = ModelTrainer('data/preprocessed_data.csv', 'model/xgb_model_admission.pkl', 'model/xgb_model_ADM_ICD.pkl')
     trainer.train_admission_model()
     print("Admission model training done")
     trainer.evaluate_admission_model()

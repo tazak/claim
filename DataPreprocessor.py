@@ -15,12 +15,13 @@ class DataPreprocessor:
     
         self.G, self.icd_codes = hierarchy.icd9()
         self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+        self.embedder.vector_size = 2
         if self.is_training:
             self.embedder.fit(self.G, self.icd_codes)
             joblib.dump(self.embedder, 'model/embedder.pkl')
         else:
             self.embedder = joblib.load('model/embedder.pkl')
-        self.embedder.vector_size = 2
+        
         
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
@@ -75,6 +76,10 @@ class DataPreprocessor:
             self._preprocess_other_columns()
             self._encode_columns()
             self._scale_payments() 
+            self.drop_Adm_col()
+
+    def drop_Adm_col(self):
+        self.data= self.data.drop(columns=['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'])
 
     def create_model_directory(self):
         directory_path = 'model'
@@ -86,7 +91,7 @@ class DataPreprocessor:
         self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
 
     def add_adm_col(self):
-        self.data.rename(columns={'CLM_ID': 'ADMNS'}, inplace=True)
+        self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
