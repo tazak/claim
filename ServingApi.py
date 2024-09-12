@@ -74,30 +74,33 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
-      
-        preprocessor = DataPreprocessor(record_df, is_training=False)
-    
+        try:
+            preprocessor = DataPreprocessor(record_df, is_training=False)
+        except Exception as e:
+            print(f"Error during preprocessing: {e}")
+            print(record_df.shape)
+            raise e
+
         processed_record = preprocessor.data
         print(processed_record)
-        
+
         admission_record = processed_record.copy()
-        admission_record = admission_record.drop(columns=['isAdm'])
-        admission_record.to_csv("adm_record.csv" ,index=False)
+        if 'isAdm' in admission_record.columns:
+         admission_record = admission_record.drop(columns=['isAdm'])
         admission_prediction = admission_model.predict(admission_record)
-        processed_record.to_csv("preprocessed_record.csv", index=False)
+        print(admission_prediction)
+
         if int(admission_prediction[0]) == 1:
             processed_record['isAdm'] = 1  
-
             adm_icd_prediction = ADM_ICD_model.predict(processed_record)
-            icd_pred_1, icd_pred_2 = adm_icd_prediction[0], adm_icd_prediction[1]
-            Adm_Vec= f"[{icd_pred_1}, {icd_pred_2} ]"
-            embedder.vector_size = 2
-            Adm_code= embedder.to_code([Adm_Vec])
-            Category =preprocessor._get_immediate_parent(Adm_code)
+            print(adm_icd_prediction)
+
+            Adm_code= embedder.to_code(adm_icd_prediction)
+            Category =preprocessor._get_immediate_parent(Adm_code[0])
 
             return {
                 "admission_prediction": int(admission_prediction[0]),
-                "Adm_icd_prediction": Adm_Vec,
+                "Adm_icd_prediction": Adm_code,
                 "Category": Category
             }
         else:
