@@ -79,12 +79,12 @@ async def predict(record: Record):
     
         processed_record = preprocessor.data
         print(processed_record)
-
+        
         admission_record = processed_record.copy()
         admission_record = admission_record.drop(columns=['isAdm'])
-        
+        admission_record.to_csv("adm_record.csv" ,index=False)
         admission_prediction = admission_model.predict(admission_record)
-
+        processed_record.to_csv("preprocessed_record.csv", index=False)
         if int(admission_prediction[0]) == 1:
             processed_record['isAdm'] = 1  
 

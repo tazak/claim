@@ -26,7 +26,7 @@ class ModelTrainer:
 
         # Features and target for ADM_ICD prediction
         self.target_cat = self.data[['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2']]
-        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2', 'isAdm', 'Category'], axis=1)
+        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2', 'Category'], axis=1)
 
         # Stratified splitting 
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
@@ -44,7 +44,6 @@ class ModelTrainer:
 
     def save_adm_test_data(self, adm_test_path='adm_test_data.csv'):
         adm_test_data = pd.DataFrame(self.X_test_adm)
-        adm_test_data['isAdm'] = self.y_test_adm.reset_index(drop=True)
         adm_test_data.to_csv(adm_test_path, index=False)
         print(f"Admission Test data saved to {adm_test_path}")
 
@@ -111,6 +110,7 @@ if __name__ == "__main__":
     print("Admission model training done")
     trainer.evaluate_admission_model()
     print("Admission model evaluation done")
+    trainer.save_adm_test_data()
     trainer.train_ADM_ICD_model()
     print("ADM_ICD model training done")
     trainer.evaluate_ADM_ICD_model()
