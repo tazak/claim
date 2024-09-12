@@ -9,24 +9,24 @@ import concurrent.futures
 
 
 class DataPreprocessor:
-    
     def __init__(self, df, is_training=True):
         self.data = df
         self.is_training = is_training
     
         self.G, self.icd_codes = hierarchy.icd9()
         self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+        self.embedder.vector_size = 2
         if self.is_training:
             self.embedder.fit(self.G, self.icd_codes)
             joblib.dump(self.embedder, 'model/embedder.pkl')
         else:
             self.embedder = joblib.load('model/embedder.pkl')
-        self.embedder.vector_size = 2
+        
         
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
             'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 'ICD9_DGNS_CD_6',
-            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8'
+            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','ADMTNG_ICD9_DGNS_CD'
         ]
         self.sp_indicators = [
             'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD',
@@ -76,6 +76,10 @@ class DataPreprocessor:
             self._preprocess_other_columns()
             self._encode_columns()
             self._scale_payments() 
+            self.drop_Adm_col()
+
+    def drop_Adm_col(self):
+        self.data= self.data.drop(columns=['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'])
 
     def create_model_directory(self):
         directory_path = 'model'
@@ -87,24 +91,23 @@ class DataPreprocessor:
         self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
 
     def add_adm_col(self):
-        self.data.rename(columns={'CLM_ID': 'ADMNS'}, inplace=True)
+        self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
 
-    def _get_top_most_parent(self, icd_code):
+    
+    def _get_immediate_parent(self, icd_code):
      if icd_code not in self.G.nodes():
         return "OTHER"
      try:
-        path = nx.shortest_path(self.G, source="root", target=icd_code)
-        top_most_parent = path[1] if len(path) > 1 else path[0]
-        return top_most_parent
-     except nx.NetworkXNoPath:
+        predecessors = list(self.G.predecessors(icd_code))
+        return predecessors[0] if predecessors else "OTHER"
+     except nx.NetworkXError:
         return "OTHER"
-    
-    def _add_category_column(self):
-     self.data['Category'] = self.data['ADMNS_DGNS'].apply(lambda code: self._get_top_most_parent(code))
 
+    def _add_category_column(self):
+     self.data['Category'] = self.data['ADMTNG_ICD9_DGNS_CD'].apply(lambda code: self._get_immediate_parent(code))
 
     def _code_to_vector(self, code):
         if code is None or pd.isna(code):
