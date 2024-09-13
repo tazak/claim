@@ -133,19 +133,18 @@ class DataPreprocessor:
         self.data['BENE_ESRD_IND'] = self.data['BENE_ESRD_IND'].map({"1": 1, "0": 0})
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
-
         age_bins = [0, 60, 90, 100]
         age_labels = ['<60', '60-90', '>90']
         self.data['BENE_BIRTH_DT'] = pd.to_datetime(self.data['BENE_BIRTH_DT'], format='%Y-%m-%d')
         self.data['CLM_FROM_DT'] = pd.to_datetime(self.data['CLM_FROM_DT'], format='%Y-%m-%d')
         self.data['CLM_THRU_DT'] = pd.to_datetime(self.data['CLM_THRU_DT'], format='%Y-%m-%d')
-
+      
         self.data['AGE'] = self.data.apply(lambda e: (e['CLM_FROM_DT'] - e['BENE_BIRTH_DT']).days / 365, axis=1)
         self.data['CLM_UTLZTN_DAY_CNT'] = (self.data['CLM_THRU_DT'] - self.data['CLM_FROM_DT']).dt.days
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
         self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
                        inplace=True)
-
+        
     def _encode_columns(self):
         self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
         self.data['BENE_RACE_CD'] = self.data['BENE_RACE_CD'].map(self.race_code_mapping)
