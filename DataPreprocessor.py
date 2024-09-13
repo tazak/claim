@@ -9,24 +9,24 @@ import concurrent.futures
 
 
 class DataPreprocessor:
-    
     def __init__(self, df, is_training=True):
         self.data = df
         self.is_training = is_training
     
         self.G, self.icd_codes = hierarchy.icd9()
         self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+        self.embedder.vector_size = 2
         if self.is_training:
             self.embedder.fit(self.G, self.icd_codes)
             joblib.dump(self.embedder, 'model/embedder.pkl')
         else:
             self.embedder = joblib.load('model/embedder.pkl')
-        self.embedder.vector_size = 2
+        
         
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
             'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 'ICD9_DGNS_CD_6',
-            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8'
+            'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','ADMTNG_ICD9_DGNS_CD'
         ]
         self.sp_indicators = [
             'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD',
@@ -76,8 +76,10 @@ class DataPreprocessor:
             self._preprocess_other_columns()
             self._encode_columns()
             self._scale_payments() 
+            self.drop_Adm_col()
 
-    
+    def drop_Adm_col(self):
+        self.data= self.data.drop(columns=['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'])
 
     def create_model_directory(self):
         directory_path = 'model'
@@ -85,32 +87,27 @@ class DataPreprocessor:
             os.makedirs(directory_path)
             print(f"Directory '{directory_path}' created.")
       
-   
-
     def drop_column(self):
         self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
 
     def add_adm_col(self):
-        self.data.rename(columns={'CLM_ID': 'ADMNS'}, inplace=True)
+        self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
 
-    def _get_top_most_parent(self, icd_code):
-        try:
-            path = nx.shortest_path(self.G, source="root", target=icd_code)
-            return path[1]
-        except nx.NetworkXError:
-            return None
-
-    def _determine_category(self, icd_codes):
-        parents = [self._get_top_most_parent(code) for code in icd_codes if code in self.G.nodes()]
-        if not parents:
-            return None
-        return max(set(parents), key=parents.count)
+    
+    def _get_immediate_parent(self, icd_code):
+     if icd_code not in self.G.nodes():
+        return "OTHER"
+     try:
+        predecessors = list(self.G.predecessors(icd_code))
+        return predecessors[0] if predecessors else "OTHER"
+     except nx.NetworkXError:
+        return "OTHER"
 
     def _add_category_column(self):
-        self.data['Category'] = self.data[self.diagnosis_cols].apply(lambda row: self._determine_category(row.dropna()), axis=1)
+     self.data['Category'] = self.data['ADMTNG_ICD9_DGNS_CD'].apply(lambda code: self._get_immediate_parent(code))
 
     def _code_to_vector(self, code):
         if code is None or pd.isna(code):
@@ -121,11 +118,8 @@ class DataPreprocessor:
         self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
         
     def _convert_codes_to_vectors(self):
-        # for col in self.diagnosis_cols:
-        #     self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
         with concurrent.futures.ThreadPoolExecutor() as executor:
             executor.map(self._convert_single_column, self.diagnosis_cols)
-
 
     def _flatten_vectors(self):
         for col in self.diagnosis_cols:
@@ -139,19 +133,18 @@ class DataPreprocessor:
         self.data['BENE_ESRD_IND'] = self.data['BENE_ESRD_IND'].map({"1": 1, "0": 0})
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
-
         age_bins = [0, 60, 90, 100]
         age_labels = ['<60', '60-90', '>90']
         self.data['BENE_BIRTH_DT'] = pd.to_datetime(self.data['BENE_BIRTH_DT'], format='%Y-%m-%d')
         self.data['CLM_FROM_DT'] = pd.to_datetime(self.data['CLM_FROM_DT'], format='%Y-%m-%d')
         self.data['CLM_THRU_DT'] = pd.to_datetime(self.data['CLM_THRU_DT'], format='%Y-%m-%d')
-
+      
         self.data['AGE'] = self.data.apply(lambda e: (e['CLM_FROM_DT'] - e['BENE_BIRTH_DT']).days / 365, axis=1)
         self.data['CLM_UTLZTN_DAY_CNT'] = (self.data['CLM_THRU_DT'] - self.data['CLM_FROM_DT']).dt.days
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
         self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
                        inplace=True)
-
+        
     def _encode_columns(self):
         self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
         self.data['BENE_RACE_CD'] = self.data['BENE_RACE_CD'].map(self.race_code_mapping)
