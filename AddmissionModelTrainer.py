@@ -21,19 +21,18 @@ class ModelTrainer:
         self.cat_model_save_path = cat_model_save_path
 
         # Features and target for admission prediction
-        self.features_adm = self.data.drop(['isAdm', 'Category','ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'], axis=1)
+        self.features_adm = self.data.drop(['isAdm','ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'], axis=1)
         self.target_adm = self.data['isAdm']
 
         # Features and target for ADM_ICD prediction
         self.target_cat = self.data[['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2']]
-        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2', 'Category'], axis=1)
+        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'], axis=1)
 
         # Stratified splitting 
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
             self.features_adm, self.target_adm, test_size=0.3, random_state=42, stratify=self.target_adm
         )
 
-        
         self.X_train_cat, self.X_test_cat, self.y_train_cat, self.y_test_cat = train_test_split(
             self.features_cat, self.target_cat, test_size=0.3, random_state=42
         )
