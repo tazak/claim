@@ -11,14 +11,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-admission_model_path = "model/xgb_model_admission.pkl"  
-ADM_ICD_model_path = "model/xgb_model_ADM_ICD.pkl"  
-embedder_path ="model/embedder.pkl"
+adm_model_path = "model/xgb_model_admission.pkl"  
+adm_ICD_model_path = "model/xgb_model_ADM_ICD.pkl"  
+embedder_path ="model/Embedder.pkl"
 
 try:
     global admission_model, ADM_ICD_model
-    admission_model = joblib.load(admission_model_path)
-    ADM_ICD_model = joblib.load(ADM_ICD_model_path)
+    admission_model = joblib.load(adm_model_path)
+    ADM_ICD_model = joblib.load(adm_ICD_model_path)
     embedder = joblib.load(embedder_path)
 except Exception as e:
     raise RuntimeError(f"Error loading models: {str(e)}")
@@ -31,7 +31,7 @@ class Record(BaseModel):
     BENE_DEATH_DT: Optional[str] = Field(None, description="Date of death in YYYY-MM-DD format. Can be null if the beneficiary is alive.", pattern=r"^\d{4}-\d{2}-\d{2}$")
     BENE_SEX_IDENT_CD: int = Field(..., description="Sex of the beneficiary. 1: Male, 2: Female.", ge=1, le=2)
     BENE_RACE_CD: int = Field(..., description="Beneficiary Race Code. An integer code representing the race.", ge=1, le=5)
-    BENE_ESRD_IND: str = Field(..., description="End stage renal disease Indicator. 'Y' for Yes, 'N' for No.", pattern=r'^[01]$')
+    BENE_ESRD_IND: int = Field(..., description="End stage renal disease Indicator. '1' for Yes, '0' for No.",ge=0, le=2)
     BENE_HI_CVRAGE_TOT_MONS: int = Field(..., description="Total number of months of part A coverage for the beneficiary.", ge=0)
     BENE_SMI_CVRAGE_TOT_MONS: int = Field(..., description="Total number of months of part B coverage for the beneficiary.", ge=0)
     BENE_HMO_CVRAGE_TOT_MONS: int = Field(..., description="Total number of months of HMO coverage for the beneficiary.", ge=0)
@@ -74,6 +74,7 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
+        record_df.to_csv("Records.csv")
         try:
             preprocessor = DataPreprocessor(record_df, is_training=False)
         except Exception as e:
@@ -85,8 +86,9 @@ async def predict(record: Record):
         print(processed_record)
 
         admission_record = processed_record.copy()
-        if 'isAdm' in admission_record.columns:
-         admission_record = admission_record.drop(columns=['isAdm'])
+        # if 'isAdm' in admission_record.columns:
+        #  admission_record = admission_record.drop(columns=['isAdm'])
+        admission_record.to_csv('adm_test_record.csv', index=False)
         admission_prediction = admission_model.predict(admission_record)
         print(admission_prediction)
 

@@ -13,21 +13,32 @@ class DataPreprocessor:
         self.data = df
         self.is_training = is_training
     
-        self.G, self.icd_codes = hierarchy.icd9()
-        self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
-        self.embedder.vector_size = 2
-        if self.is_training:
-            self.embedder.fit(self.G, self.icd_codes)
-            joblib.dump(self.embedder, 'model/embedder.pkl')
-        else:
-            self.embedder = joblib.load('model/embedder.pkl')
-        
-        
+        # self.G, self.icd_codes = hierarchy.icd9()
+        # self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+        # self.embedder.vector_size = 2
+
+        # if self.is_training:
+        #     self.embedder.fit(self.G, self.icd_codes)
+        #     print("hello") 
+        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
+        #     self.scaler = StandardScaler()
+        # else:
+        #     self.embedder = joblib.load("model/Embedder.pkl")
+        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
+        #     self.scaler = joblib.load('model/scaler.pkl')
+
+
+
+        print("DataPreprocessor INIT PASSED")
+
+            
         self.diagnosis_cols = [
             'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 'ICD9_DGNS_CD_3',
             'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 'ICD9_DGNS_CD_6',
             'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','ADMTNG_ICD9_DGNS_CD'
         ]
+        
+            
         self.sp_indicators = [
             'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD',
             'SP_DEPRESSN', 'SP_DIABETES', 'SP_ISCHMCHT', 'SP_OSTEOPRS',
@@ -50,36 +61,39 @@ class DataPreprocessor:
             4: 3,
             5: 4
         }
+        self.G, self.icd_codes = hierarchy.icd9()
         
         if self.is_training:
-            self.scaler = StandardScaler()
-        else:
-            self.scaler = joblib.load('model/scaler.pkl')
-    
-
-        if self.is_training:
-            self.drop_column()
+            self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+            self.embedder.vector_size = 2
+            self.embedder.fit(self.G, self.icd_codes)
+            joblib.dump(self.embedder, "model/Embedder.pkl")
+            columns_to_drop = ['SP_STATE_CODE', 'BENE_COUNTY_CD']
+            self.drop_column(columns_to_drop)
             self.create_model_directory()
             self._process_total_diagnosis_count()
-            self._add_category_column()
             self._convert_codes_to_vectors()
             self._flatten_vectors()
             self._preprocess_other_columns()
             self._encode_columns()
-            self._encode_category()
+            self.scaler = StandardScaler()
             self._scale_payments()
+            joblib.dump(self.scaler, 'model/scaler.pkl')
         else:
-            self.add_adm_col()
+            # self.add_adm_col()
+            # columns_to_drop = ['DESYNPUF_ID', 'CLM_ID','PRVDR_NUM']
+            # self.drop_column(columns_to_drop)
+            columns_to_drop = ['SP_STATE_CODE', 'BENE_COUNTY_CD']
+            self.drop_column(columns_to_drop)
             self._process_total_diagnosis_count()
+            self.embedder = joblib.load("model/Embedder.pkl")
             self._convert_codes_to_vectors()
             self._flatten_vectors()
             self._preprocess_other_columns()
             self._encode_columns()
+            self.scaler = joblib.load('model/scaler.pkl')
             self._scale_payments() 
-            self.drop_Adm_col()
 
-    def drop_Adm_col(self):
-        self.data= self.data.drop(columns=['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'])
 
     def create_model_directory(self):
         directory_path = 'model'
@@ -87,16 +101,19 @@ class DataPreprocessor:
             os.makedirs(directory_path)
             print(f"Directory '{directory_path}' created.")
       
-    def drop_column(self):
-        self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
+    # def drop_column(self):
+    #     self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
+    
 
-    def add_adm_col(self):
-        self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
+    def drop_column(self, columns):
+        self.data = self.data.drop(columns=[col for col in columns if col in self.data.columns])    
+
+    # def add_adm_col(self):
+    #     self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
 
-    
     def _get_immediate_parent(self, icd_code):
      if icd_code not in self.G.nodes():
         return "OTHER"
@@ -111,18 +128,30 @@ class DataPreprocessor:
 
     def _code_to_vector(self, code):
         if code is None or pd.isna(code):
-            return np.zeros(self.embedder.vector_size)
-        return self.embedder.to_vec([code])[0] if code in self.G.nodes() else np.zeros(self.embedder.vector_size)
-    
-    def _convert_single_column(self, col):
-        self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
-        
-    def _convert_codes_to_vectors(self):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(self._convert_single_column, self.diagnosis_cols)
+         vector = np.zeros(self.embedder.vector_size)
+        else:
+         vector = self.embedder.to_vec([code])[0] if code in self.G.nodes() else np.zeros(self.embedder.vector_size)
+        return vector
 
+    def _convert_codes_to_vectors(self):
+       for col in self.diagnosis_cols: 
+        self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
+        print(self.data[col].head(5))  
+    #    if self.is_training:
+    #      joblib.dump(self.embedder, "model/Embedder.pkl")
+        
+   
+    
     def _flatten_vectors(self):
         for col in self.diagnosis_cols:
+            # print(f"Processing column: {col}")  # Print the column name
+            # print(f"First 5 values in {col}:\n", self.data[col].head(5))  
+             # Check the shape of the first element in the column
+            # print(f"Shape of the first element in {col}: {np.array(self.data[col].iloc[0]).shape}")
+            # if len(np.array(self.data[col].iloc[0]).shape) == 0:
+            #  print(f"Column {col} contains scalar values. Replacing with [0.0, 0.0].\n")
+            #  self.data[col] = self.data[col].apply(lambda x: [0.0, 0.0])
+        
             vector_columns = pd.DataFrame(self.data[col].tolist(), index=self.data.index, 
                                           columns=[f'{col}_vec_{i+1}' for i in range(self.embedder.vector_size)])
             self.data = pd.concat([self.data, vector_columns], axis=1)
@@ -130,7 +159,6 @@ class DataPreprocessor:
 
     def _preprocess_other_columns(self):
         self.data['BENE_SEX_IDENT_CD'] = self.data['BENE_SEX_IDENT_CD'].map({1: 1, 2: 0})
-        self.data['BENE_ESRD_IND'] = self.data['BENE_ESRD_IND'].map({"1": 1, "0": 0})
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
         age_bins = [0, 60, 90, 100]
@@ -142,8 +170,10 @@ class DataPreprocessor:
         self.data['AGE'] = self.data.apply(lambda e: (e['CLM_FROM_DT'] - e['BENE_BIRTH_DT']).days / 365, axis=1)
         self.data['CLM_UTLZTN_DAY_CNT'] = (self.data['CLM_THRU_DT'] - self.data['CLM_FROM_DT']).dt.days
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
-        self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE'], 
-                       inplace=True)
+        # self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE',], 
+        #                inplace=True)
+        cols_to_drop =['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_ID','CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE']
+        self.drop_column(cols_to_drop)
         
     def _encode_columns(self):
         self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
@@ -162,7 +192,7 @@ class DataPreprocessor:
     def _scale_payments(self):
         if self.is_training:
             self.data[self.payment_vars] = self.scaler.fit_transform(self.data[self.payment_vars])
-            joblib.dump(self.scaler, 'model/scaler.pkl')
+            # joblib.dump(self.scaler, 'model/scaler.pkl')
         else:
             self.data[self.payment_vars] = self.scaler.transform(self.data[self.payment_vars])
  
@@ -175,7 +205,6 @@ class DataPreprocessor:
 if __name__ == '__main__':
     print("Started preprocessing the cms data")
     df = pd.read_csv('data/admission.csv')
-    print(df.columns)
     preprocessor = DataPreprocessor(df)
     preprocessor.save_to_csv('data/preprocessed_data.csv')
     preprocessor.display_head()
