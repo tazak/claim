@@ -74,8 +74,10 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
-        Claim_ID = record_df['CLM_ID'].values[0]
-        DESYNPUF_ID = record_df['DESYNPUF_ID'].values[0]
+        Claim_ID = record_df['CLM_ID'].iloc[0]
+        DESYNPUF_ID = record_df['DESYNPUF_ID'].iloc[0]
+        print(Claim_ID)
+        print(DESYNPUF_ID)
         record_df.to_csv("Records.csv")
         try:
             preprocessor = DataPreprocessor(record_df, is_training=False)
@@ -99,16 +101,16 @@ async def predict(record: Record):
             Adm_code= embedder.to_code(adm_icd_prediction)
             Category =preprocessor._get_immediate_parent(Adm_code[0])
             return {
-                "Claim ID": Claim_ID,
-                "Beneficiary_ID": DESYNPUF_ID,
+                "Claim ID": int(Claim_ID), 
+                "Beneficiary_ID": str(DESYNPUF_ID),
                 "admission_prediction": int(admission_prediction[0]),
-                "Adm_icd_prediction": Adm_code,
-                "Category": Category
+                "Category": Category,
+                "Admission_diagnosis_ICD": Adm_code[0]
             }
         else:
             return {
-                "Claim ID": Claim_ID,
-                "Beneficiary_ID": DESYNPUF_ID,
+                "Claim ID": int(Claim_ID),  
+                "Beneficiary_ID": str(DESYNPUF_ID),
                 "admission_prediction": int(admission_prediction[0]),
                 "Adm_icd_prediction": None
             }
