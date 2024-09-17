@@ -28,7 +28,7 @@ except Exception as e:
 class Record(BaseModel):
     DESYNPUF_ID: str = Field(..., description="Beneficiary Code, a unique identifier for each beneficiary.")
     BENE_BIRTH_DT: str = Field(..., description="Date of birth in YYYY-MM-DD format.", pattern=r"^\d{4}-\d{2}-\d{2}$")
-    BENE_DEATH_DT: Optional[str] = Field(None, description="Date of death in YYYY-MM-DD format. Can be null if the beneficiary is alive.", pattern=r"^\d{4}-\d{2}-\d{2}$")
+    BENE_DEATH_DT: Optional[str] = Field(None, description="Date of death in YYYY-MM-DD format. Can be null if the beneficiary is alive.", pattern=r"^\d{4}-\d{2}-\d{2}$|^NULL$")
     BENE_SEX_IDENT_CD: int = Field(..., description="Sex of the beneficiary. 1: Male, 2: Female.", ge=1, le=2)
     BENE_RACE_CD: int = Field(..., description="Beneficiary Race Code. An integer code representing the race.", ge=1, le=5)
     BENE_ESRD_IND: int = Field(..., description="End stage renal disease Indicator. '1' for Yes, '0' for No.",ge=0, le=2)
@@ -74,6 +74,8 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
+        Claim_ID = record_df['CLM_ID'].values[0]
+        DESYNPUF_ID = record_df['DESYNPUF_ID'].values[0]
         record_df.to_csv("Records.csv")
         try:
             preprocessor = DataPreprocessor(record_df, is_training=False)
@@ -84,29 +86,29 @@ async def predict(record: Record):
 
         processed_record = preprocessor.data
         print(processed_record)
-
-        admission_record = processed_record.copy()
-        # if 'isAdm' in admission_record.columns:
-        #  admission_record = admission_record.drop(columns=['isAdm'])
-        admission_record.to_csv('adm_test_record.csv', index=False)
-        admission_prediction = admission_model.predict(admission_record)
+        processed_record.to_csv('adm_test_record.csv', index=False)
+        admission_prediction = admission_model.predict(processed_record)
         print(admission_prediction)
 
         if int(admission_prediction[0]) == 1:
             processed_record['isAdm'] = 1  
-            adm_icd_prediction = ADM_ICD_model.predict(processed_record)
+            adm_icd=processed_record.drop(columns=['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2','isAdm'])
+            adm_icd_prediction = ADM_ICD_model.predict(adm_icd)
             print(adm_icd_prediction)
 
             Adm_code= embedder.to_code(adm_icd_prediction)
             Category =preprocessor._get_immediate_parent(Adm_code[0])
-
             return {
+                "Claim ID": Claim_ID,
+                "Beneficiary_ID": DESYNPUF_ID,
                 "admission_prediction": int(admission_prediction[0]),
                 "Adm_icd_prediction": Adm_code,
                 "Category": Category
             }
         else:
             return {
+                "Claim ID": Claim_ID,
+                "Beneficiary_ID": DESYNPUF_ID,
                 "admission_prediction": int(admission_prediction[0]),
                 "Adm_icd_prediction": None
             }
