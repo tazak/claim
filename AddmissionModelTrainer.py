@@ -6,12 +6,17 @@ from xgboost import XGBClassifier, XGBRegressor
 from sklearn.multioutput import MultiOutputRegressor
 import joblib
 import mlflow
+from mlflow import MlflowException
 
 class ModelTrainer:
     def __init__(self, data_path, adm_model_save_path, cat_model_save_path):
         # MLflow tracking URI for logging
-        mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
-        mlflow.set_experiment("xgboost")
+        try:
+            mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+            mlflow.set_experiment("xgboost")
+        except MlflowException as ex:
+            print(ex.message)
+            pass
 
         self.data = pd.read_csv(data_path)
         self.data = pd.read_csv(data_path)
@@ -21,19 +26,18 @@ class ModelTrainer:
         self.cat_model_save_path = cat_model_save_path
 
         # Features and target for admission prediction
-        self.features_adm = self.data.drop(['isAdm', 'Category','ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'], axis=1)
+        self.features_adm = self.data.drop(['isAdm'], axis=1)
         self.target_adm = self.data['isAdm']
 
         # Features and target for ADM_ICD prediction
         self.target_cat = self.data[['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2']]
-        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2', 'Category'], axis=1)
+        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2','isAdm'], axis=1)
 
         # Stratified splitting 
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
             self.features_adm, self.target_adm, test_size=0.3, random_state=42, stratify=self.target_adm
         )
 
-        
         self.X_train_cat, self.X_test_cat, self.y_train_cat, self.y_test_cat = train_test_split(
             self.features_cat, self.target_cat, test_size=0.3, random_state=42
         )
