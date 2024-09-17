@@ -57,6 +57,7 @@ class Record(BaseModel):
     BENRES_CAR: int = Field(..., description="Carrier annual beneficiary responsibility amount.", ge=0)
     PPPYMT_CAR: int = Field(..., description="Carrier annual primary payer reimbursement amount.", ge=0)
     CLM_ID: int = Field(..., description="Claim ID, a unique identifier for each claim.")
+    ADMTNG_ICD9_DGNS_CD: Optional[str] = Field(None, description="Claim Admitting Diagnosis Code")
     CLM_FROM_DT: str = Field(..., description="Claims start date in YYYY-MM-DD format.", pattern=r"^\d{4}-\d{2}-\d{2}$")
     CLM_THRU_DT: str = Field(..., description="Claims end date in YYYY-MM-DD format.", pattern=r"^\d{4}-\d{2}-\d{2}$")
     PRVDR_NUM: str = Field(..., description="Provider Institution identifier.")
@@ -73,6 +74,7 @@ class Record(BaseModel):
 async def predict(record: Record):
     try:
         record_df = pd.DataFrame([record.model_dump()])
+        record_df.to_csv("Records.csv")
         try:
             preprocessor = DataPreprocessor(record_df, is_training=False)
         except Exception as e:
@@ -84,9 +86,9 @@ async def predict(record: Record):
         print(processed_record)
 
         admission_record = processed_record.copy()
-        if 'isAdm' in admission_record.columns:
-         admission_record = admission_record.drop(columns=['isAdm'])
-        admission_record.to_csv('adm_test_record.csv', index=False, float_format='%.16f')
+        # if 'isAdm' in admission_record.columns:
+        #  admission_record = admission_record.drop(columns=['isAdm'])
+        admission_record.to_csv('adm_test_record.csv', index=False)
         admission_prediction = admission_model.predict(admission_record)
         print(admission_prediction)
 
