@@ -10,24 +10,25 @@ import concurrent.futures
 
 class DataPreprocessor:
     def __init__(self, df, is_training=True):
+   
+# Convert integer columns
+        int_columns = ['BENE_SEX_IDENT_CD', 'BENE_RACE_CD', 'BENE_ESRD_IND', 'BENE_HI_CVRAGE_TOT_MONS', 
+               'BENE_SMI_CVRAGE_TOT_MONS', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 
+               'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD', 'SP_DEPRESSN', 
+               'SP_DIABETES', 'SP_ISCHMCHT', 'SP_OSTEOPRS', 'SP_RA_OA', 'SP_STRKETIA', 
+               'MEDREIMB_IP', 'BENRES_IP', 'PPPYMT_IP', 'MEDREIMB_OP', 'BENRES_OP', 
+               'PPPYMT_OP', 'MEDREIMB_CAR', 'BENRES_CAR', 'PPPYMT_CAR', 'CLM_ID']
+
+        df[int_columns] = df[int_columns].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+ 
+        optional_str_columns = ['ADMTNG_ICD9_DGNS_CD', 'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 
+                        'ICD9_DGNS_CD_3', 'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 
+                        'ICD9_DGNS_CD_6', 'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','BENE_BIRTH_DT'
+                        ,'BENE_DEATH_DT','DESYNPUF_ID','CLM_FROM_DT', 'CLM_THRU_DT','PRVDR_NUM']
+
+        df[optional_str_columns] = df[optional_str_columns].astype(str).replace({'nan': None})
         self.data = df
         self.is_training = is_training
-    
-        # self.G, self.icd_codes = hierarchy.icd9()
-        # self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
-        # self.embedder.vector_size = 2
-
-        # if self.is_training:
-        #     self.embedder.fit(self.G, self.icd_codes)
-        #     print("hello") 
-        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
-        #     self.scaler = StandardScaler()
-        # else:
-        #     self.embedder = joblib.load("model/Embedder.pkl")
-        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
-        #     self.scaler = joblib.load('model/scaler.pkl')
-
-
 
         print("DataPreprocessor INIT PASSED")
 
