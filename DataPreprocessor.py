@@ -9,6 +9,13 @@ import concurrent.futures
 
 
 class DataPreprocessor:
+   """
+        Initializes the DataPreprocessor with a dataframe.
+        
+        Parameters:
+            df (DataFrame): The input dataframe.
+            is_training (bool): Whether the process is for training or evaluation.
+    """
     def __init__(self, df, is_training=True):
    
 # Convert integer columns
@@ -102,15 +109,16 @@ class DataPreprocessor:
             os.makedirs(directory_path)
             print(f"Directory '{directory_path}' created.")
       
-    # def drop_column(self):
-    #     self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
-    
+  
 
     def drop_column(self, columns):
+        """
+        Drop unnecessary columns from the dataframe.
+        
+        Parameters:
+            cols_to_drop (list): A list of columns to be dropped.
+        """
         self.data = self.data.drop(columns=[col for col in columns if col in self.data.columns])    
-
-    # def add_adm_col(self):
-    #     self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
@@ -159,6 +167,9 @@ class DataPreprocessor:
             self.data.drop(columns=[col], inplace=True)
 
     def _preprocess_other_columns(self):
+         """
+        Processes date-related fields and computes additional age group features.
+        """
         self.data['BENE_SEX_IDENT_CD'] = self.data['BENE_SEX_IDENT_CD'].map({1: 1, 2: 0})
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
@@ -177,10 +188,16 @@ class DataPreprocessor:
         self.drop_column(cols_to_drop)
         
     def _encode_columns(self):
+        """
+        Encodes categorical columns for age group and race code.
+        """
         self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
         self.data['BENE_RACE_CD'] = self.data['BENE_RACE_CD'].map(self.race_code_mapping)
    
     def _encode_category(self):
+         """
+        Encodes the 'Category' column using LabelEncoder.
+        """
         encoder = LabelEncoder()
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
 
@@ -191,6 +208,9 @@ class DataPreprocessor:
         category_mapping.to_csv('data/category_mapping.csv', index=False)
 
     def _scale_payments(self):
+        """
+        Scales the payment-related variables using StandardScaler.
+        """
         if self.is_training:
             self.data[self.payment_vars] = self.scaler.fit_transform(self.data[self.payment_vars])
             # joblib.dump(self.scaler, 'model/scaler.pkl')
@@ -198,6 +218,12 @@ class DataPreprocessor:
             self.data[self.payment_vars] = self.scaler.transform(self.data[self.payment_vars])
  
     def save_to_csv(self, output_path):
+         """
+        Saves the processed dataframe to a CSV file.
+        
+        Parameters:
+            output_path (str): Path to save the processed file.
+        """
         self.data.to_csv(output_path, index=False)
 
     def display_head(self):
