@@ -146,10 +146,6 @@ class DataPreprocessor:
        for col in self.diagnosis_cols: 
         self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
         print(self.data[col].head(5))  
-    #    if self.is_training:
-    #      joblib.dump(self.embedder, "model/Embedder.pkl")
-        
-   
     
     def _flatten_vectors(self):
         for col in self.diagnosis_cols:
