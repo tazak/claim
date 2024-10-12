@@ -19,7 +19,7 @@ class ModelTrainer:
             pass
 
         self.data = pd.read_csv(data_path)
-        self.data = pd.read_csv(data_path)
+        #self.data = pd.read_csv(data_path)
         print("Data columns:", self.data.columns)
 
         self.adm_model_save_path = adm_model_save_path
@@ -28,11 +28,14 @@ class ModelTrainer:
         # Features and target for admission prediction
         self.features_adm = self.data.drop(['isAdm'], axis=1)
         self.target_adm = self.data['isAdm']
+        print("Data features_adm:", self.features_adm.columns)
 
         # Features and target for ADM_ICD prediction
+        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2'], axis=1)
         self.target_cat = self.data[['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2']]
-        self.features_cat = self.data.drop(['ADMTNG_ICD9_DGNS_CD_vec_1','ADMTNG_ICD9_DGNS_CD_vec_2','isAdm'], axis=1)
+        
 
+        print("Data features_cat:", self.features_cat.columns)
         # Stratified splitting 
         self.X_train_adm, self.X_test_adm, self.y_train_adm, self.y_test_adm = train_test_split(
             self.features_adm, self.target_adm, test_size=0.3, random_state=42, stratify=self.target_adm
@@ -46,7 +49,7 @@ class ModelTrainer:
         self.model_adm = XGBClassifier(eval_metric='logloss')
         self.model_cat = MultiOutputRegressor(XGBRegressor(eval_metric='rmse'))
 
-    def save_adm_test_data(self, adm_test_path='adm_test_data.csv'):
+    def save_adm_test_data(self, adm_test_path='data/adm_test_data.csv'):
         adm_test_data = pd.DataFrame(self.X_test_adm)
         adm_test_data.to_csv(adm_test_path, index=False)
         print(f"Admission Test data saved to {adm_test_path}")
