@@ -1,3 +1,4 @@
+---sample request
 {
     "DESYNPUF_ID": "00052705243EA128",
     "BENE_BIRTH_DT": "1934-05-01",
@@ -44,4 +45,13 @@
     "ICD9_DGNS_CD_7": "4019",
     "ICD9_DGNS_CD_8": null,
     "PRVDR_NUM": "1401HG"
+}
+---smaple response
+
+{
+    "admission_prediction": 1,
+    "Adm_icd_prediction": [
+        "2570"
+    ],
+    "Category": "Testicular dysfunction"
 }
