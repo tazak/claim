@@ -9,33 +9,25 @@ import concurrent.futures
 
 
 class DataPreprocessor:
-   """
-        Initializes the DataPreprocessor with a dataframe.
-        
-        Parameters:
-            df (DataFrame): The input dataframe.
-            is_training (bool): Whether the process is for training or evaluation.
-    """
     def __init__(self, df, is_training=True):
-   
-# Convert integer columns
-        int_columns = ['BENE_SEX_IDENT_CD', 'BENE_RACE_CD', 'BENE_ESRD_IND', 'BENE_HI_CVRAGE_TOT_MONS', 
-               'BENE_SMI_CVRAGE_TOT_MONS', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 
-               'SP_ALZHDMTA', 'SP_CHF', 'SP_CHRNKIDN', 'SP_CNCR', 'SP_COPD', 'SP_DEPRESSN', 
-               'SP_DIABETES', 'SP_ISCHMCHT', 'SP_OSTEOPRS', 'SP_RA_OA', 'SP_STRKETIA', 
-               'MEDREIMB_IP', 'BENRES_IP', 'PPPYMT_IP', 'MEDREIMB_OP', 'BENRES_OP', 
-               'PPPYMT_OP', 'MEDREIMB_CAR', 'BENRES_CAR', 'PPPYMT_CAR', 'CLM_ID']
-
-        df[int_columns] = df[int_columns].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
- 
-        optional_str_columns = ['ADMTNG_ICD9_DGNS_CD', 'ICD9_DGNS_CD_1', 'ICD9_DGNS_CD_2', 
-                        'ICD9_DGNS_CD_3', 'ICD9_DGNS_CD_4', 'ICD9_DGNS_CD_5', 
-                        'ICD9_DGNS_CD_6', 'ICD9_DGNS_CD_7', 'ICD9_DGNS_CD_8','BENE_BIRTH_DT'
-                        ,'BENE_DEATH_DT','DESYNPUF_ID','CLM_FROM_DT', 'CLM_THRU_DT','PRVDR_NUM']
-
-        df[optional_str_columns] = df[optional_str_columns].astype(str).replace({'nan': None})
         self.data = df
         self.is_training = is_training
+    
+        # self.G, self.icd_codes = hierarchy.icd9()
+        # self.embedder = icd2vec.Icd2Vec(num_embedding_dimensions=2, workers=-1)
+        # self.embedder.vector_size = 2
+
+        # if self.is_training:
+        #     self.embedder.fit(self.G, self.icd_codes)
+        #     print("hello") 
+        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
+        #     self.scaler = StandardScaler()
+        # else:
+        #     self.embedder = joblib.load("model/Embedder.pkl")
+        #     print(f"Trained embedder vector size: {self.embedder.vector_size}")
+        #     self.scaler = joblib.load('model/scaler.pkl')
+
+
 
         print("DataPreprocessor INIT PASSED")
 
@@ -76,8 +68,6 @@ class DataPreprocessor:
             self.embedder.vector_size = 2
             self.embedder.fit(self.G, self.icd_codes)
             joblib.dump(self.embedder, "model/Embedder.pkl")
-            columns_to_drop = ['SP_STATE_CODE', 'BENE_COUNTY_CD']
-            self.drop_column(columns_to_drop)
             self.create_model_directory()
             self._process_total_diagnosis_count()
             self._convert_codes_to_vectors()
@@ -88,11 +78,7 @@ class DataPreprocessor:
             self._scale_payments()
             joblib.dump(self.scaler, 'model/scaler.pkl')
         else:
-            # self.add_adm_col()
-            # columns_to_drop = ['DESYNPUF_ID', 'CLM_ID','PRVDR_NUM']
-            # self.drop_column(columns_to_drop)
-            columns_to_drop = ['SP_STATE_CODE', 'BENE_COUNTY_CD']
-            self.drop_column(columns_to_drop)
+        
             self._process_total_diagnosis_count()
             self.embedder = joblib.load("model/Embedder.pkl")
             self._convert_codes_to_vectors()
@@ -101,6 +87,7 @@ class DataPreprocessor:
             self._encode_columns()
             self.scaler = joblib.load('model/scaler.pkl')
             self._scale_payments() 
+            print ("inside the else part DataPreprocessor")
 
 
     def create_model_directory(self):
@@ -109,16 +96,15 @@ class DataPreprocessor:
             os.makedirs(directory_path)
             print(f"Directory '{directory_path}' created.")
       
-  
+    # def drop_column(self):
+    #     self.data= self.data.drop(columns=['SP_STATE_CODE', 'BENE_COUNTY_CD','CLM_ID'])
+    
 
     def drop_column(self, columns):
-        """
-        Drop unnecessary columns from the dataframe.
-        
-        Parameters:
-            cols_to_drop (list): A list of columns to be dropped.
-        """
         self.data = self.data.drop(columns=[col for col in columns if col in self.data.columns])    
+
+    # def add_adm_col(self):
+    #     self.data.rename(columns={'CLM_ID': 'isAdm'}, inplace=True)
 
     def _process_total_diagnosis_count(self):
         self.data['Total_Diagnosis_Count'] = self.data[self.diagnosis_cols].notna().sum(axis=1)
@@ -146,6 +132,10 @@ class DataPreprocessor:
        for col in self.diagnosis_cols: 
         self.data[col] = self.data[col].apply(lambda x: self._code_to_vector(x))
         print(self.data[col].head(5))  
+    #    if self.is_training:
+    #      joblib.dump(self.embedder, "model/Embedder.pkl")
+        
+   
     
     def _flatten_vectors(self):
         for col in self.diagnosis_cols:
@@ -163,9 +153,6 @@ class DataPreprocessor:
             self.data.drop(columns=[col], inplace=True)
 
     def _preprocess_other_columns(self):
-         """
-        Processes date-related fields and computes additional age group features.
-        """
         self.data['BENE_SEX_IDENT_CD'] = self.data['BENE_SEX_IDENT_CD'].map({1: 1, 2: 0})
         for col in self.sp_indicators:
             self.data[col] = self.data[col].map({1: 1, 2: 0, 0:0})
@@ -180,20 +167,14 @@ class DataPreprocessor:
         self.data['AGE_GROUP'] = pd.cut(self.data['AGE'], bins=age_bins, labels=age_labels, right=False)
         # self.data.drop(columns=['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE',], 
         #                inplace=True)
-        cols_to_drop =['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_ID','CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE']
+        cols_to_drop =['DESYNPUF_ID', 'BENE_BIRTH_DT', 'BENE_DEATH_DT', 'CLM_ID','CLM_FROM_DT', 'CLM_THRU_DT', 'PRVDR_NUM', 'BENE_HMO_CVRAGE_TOT_MONS', 'PLAN_CVRG_MOS_NUM', 'AGE', 'SP_STATE_CODE', 'BENE_COUNTY_CD']
         self.drop_column(cols_to_drop)
         
     def _encode_columns(self):
-        """
-        Encodes categorical columns for age group and race code.
-        """
         self.data['AGE_GROUP'] = self.data['AGE_GROUP'].map(self.age_group_mapping)
         self.data['BENE_RACE_CD'] = self.data['BENE_RACE_CD'].map(self.race_code_mapping)
    
     def _encode_category(self):
-         """
-        Encodes the 'Category' column using LabelEncoder.
-        """
         encoder = LabelEncoder()
         self.data['Category'] = encoder.fit_transform(self.data['Category'])
 
@@ -204,9 +185,6 @@ class DataPreprocessor:
         category_mapping.to_csv('data/category_mapping.csv', index=False)
 
     def _scale_payments(self):
-        """
-        Scales the payment-related variables using StandardScaler.
-        """
         if self.is_training:
             self.data[self.payment_vars] = self.scaler.fit_transform(self.data[self.payment_vars])
             # joblib.dump(self.scaler, 'model/scaler.pkl')
@@ -214,12 +192,6 @@ class DataPreprocessor:
             self.data[self.payment_vars] = self.scaler.transform(self.data[self.payment_vars])
  
     def save_to_csv(self, output_path):
-         """
-        Saves the processed dataframe to a CSV file.
-        
-        Parameters:
-            output_path (str): Path to save the processed file.
-        """
         self.data.to_csv(output_path, index=False)
 
     def display_head(self):
